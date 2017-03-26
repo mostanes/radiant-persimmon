@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<funcs>
+	<func id="RunOne">
+		<name>rone</name>
+		<shortDescription>RunOne</shortDescription>
+		<helpText>none</helpText>
+		<arguments>
+		</arguments>
+		<returns type="void">Nothing</returns>
+	</func>
+	<func id="RunTwo">
+		<name>rtw</name>
+		<shortDescription>RunSe</shortDescription>
+		<helpText>none</helpText>
+		<arguments>
+		</arguments>
+		<returns type="void">Nothing</returns>
+	</func>
+</funcs>
