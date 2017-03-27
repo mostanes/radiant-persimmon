@@ -94,6 +94,20 @@ namespace PersimmonRadiant
 							return;
 						}
 					} else {
+						if (cs[i][0] == '@') {
+							int index1 = cs[i].IndexOf ('(');
+							if (index1 == -1 | cs[i][cs[i].Length - 1] != ')') {
+								WriteTextOnConsoleBuffer ("Badly formatted input: " + cs[i] + " not valid syntax"); return;
+							}
+							string nm = cs[i].Substring (1, index1 - 1);
+							string text = cs[i].Substring (index1 + 1, cs[i].Length - index1 - 2);
+							VariableTBase vb = InvokerSet.ParseCreateVariable (nm, text, WriteTextOnConsoleBuffer);
+							if (vb == null)
+								return;
+							vb.name = "temp";
+							argset.Add (vb);
+							continue;
+						}
 						int tint;
 						if (int.TryParse (cs[i], out tint)) {
 							Variable<int> tmpvar = tint;

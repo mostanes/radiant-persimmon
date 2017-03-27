@@ -43,6 +43,11 @@ namespace PersimmonTester
 				}
 				er = (T)((object)q);
 			}
+			if (er is double) {
+				er = obj[0].obj;
+				Console.WriteLine (er);
+				Console.WriteLine (((double)(object)er) + 1.5);
+			}
 			Console.WriteLine (er.ToString ());
 		}
 	}

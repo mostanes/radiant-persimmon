@@ -220,7 +220,7 @@ namespace PersimmonRadiant.Invoker
 			for (i = 0; i < mlength; i++) {
 				ParameterInfo pinf = pseinfo[i];
 				bool hasGen = pinf.ParameterType.ContainsGenericParameters;
-				if ((!isGen) & (!hasGen)) continue;
+				if (!hasGen) continue;
 				if (hasGen) {
 					List<Tuple<Type, Type>> ntp = TypeInference.ReplacementTypes (args[i].GetType (), pinf.ParameterType);
 					if (ntp == null) 
@@ -259,6 +259,31 @@ namespace PersimmonRadiant.Invoker
 			int i;
 			for (i = 0; i < alist.Count; i++) w[i] = (T)((object)alist[i]);
 			return w;
+		}
+
+
+		public static VariableTBase ParseCreateVariable (string type, string parse, TextDisplay WriteTextOnConsoleBuffer)
+		{
+			Type t = Type.GetType (type);
+			if (t == null) { WriteTextOnConsoleBuffer ("Type " + type + " not found."); return null; }
+			System.Reflection.MethodInfo minf;
+			try {
+				minf = t.GetMethod ("Parse", new Type[] { typeof (string) });
+			} catch (System.Reflection.AmbiguousMatchException e) { WriteTextOnConsoleBuffer ("Multiple matches for parsing method; not supported."); return null; }
+			if (minf == null) { WriteTextOnConsoleBuffer ("No parsing method found."); return null; }
+			object o;
+			try { o = minf.Invoke (null, new object[] { parse }); } catch { WriteTextOnConsoleBuffer ("Badly formatted text"); return null; }
+			if (o == null) { WriteTextOnConsoleBuffer ("Badly formatted text."); return null;}
+			MethodInfo eim = typeof(InvokerSet).GetMethod ("MakeVariableT", BindingFlags.NonPublic | BindingFlags.Static);
+			MethodInfo im = eim.MakeGenericMethod (t);
+			VariableTBase vb = (VariableTBase)im.Invoke (null, new object[] { o });
+			return vb;
+		}
+
+		static Variable<T> MakeVariableT<T> (T obj)
+		{
+			Variable<T> vt = obj;
+			return vt;
 		}
 	}
 }
