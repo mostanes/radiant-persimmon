@@ -1,4 +1,26 @@
-﻿using System;
+﻿//
+// ConsoleFunctionAttribute.cs
+// 
+// Author:
+//      Mălin Stănescu malin.stanescu@gmail.com
+//
+// Copyright (c) 2016-2017 Stănescu Mălin
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -15,10 +37,14 @@ namespace PersimmonRadiant
 	[Serializable]
 	public class ConsoleFunctionAttribute : Attribute
 	{
-		public readonly ConsoleFunctionDescription descriptor;
 		static List<ConsoleFunctionDescription> descriptors;
 		static List<string> helpPaths;
 
+		/// <summary>
+		/// Finds the function information descriptor by the method info (method name and parameters)
+		/// </summary>
+		/// <returns>The descriptor.</returns>
+		/// <param name="mi">Method info.</param>
 		public static ConsoleFunctionDescription GetDescriptor (MethodInfo mi)
 		{
 			if (descriptors == null) PopulateDescriptors ();
@@ -32,13 +58,22 @@ namespace PersimmonRadiant
 				if ((pi.ParameterType == typeof (VariableTBase)) | (pi.ParameterType == typeof (VariableTBase).MakeArrayType ())) {
 					zp = zp.Where ((x) => x.Arguments[pi.Position].TypeName == "?").ToList ();
 					continue;
-				} else
-					zp = zp.Where ((x) => string.Equals (x.Arguments[pi.Position].TypeName, pi.ParameterType.GetGenericArguments ()[0].Name, StringComparison.OrdinalIgnoreCase)).ToList ();
+				} else {
+					string nm = string.Empty;
+					Type t = pi.ParameterType;
+					if (pi.ParameterType.IsArray) { t = t.GetElementType (); nm = "[]"; }
+					if (typeof (VariableTBase).IsAssignableFrom (t))
+						t = t.GetGenericArguments ()[0];
+					else zp = zp.Where ((x) => string.Equals (x.Arguments[pi.Position].TypeName, t.Name + nm, StringComparison.OrdinalIgnoreCase)).ToList ();
+				}
 			}
 			if (zp.Count != 1) throw new Exception (); /* TODO: Implement a well-explained exception */
 			return zp[0];
 		}
 
+		/// <summary>
+		/// Populates the descriptors list.
+		/// </summary>
 		static void PopulateDescriptors ()
 		{
 			helpPaths = Directory.GetFiles ("Doc\\").Where ((x) => x.EndsWith (".xml")).ToList ();

@@ -31,5 +31,19 @@ namespace PersimmonTester
 		{
 			Console.WriteLine ("Z2");
 		}
+
+		[PersimmonRadiant.ConsoleFunction]
+		public static void Rw<T> (PersimmonRadiant.Variable<T>[] obj)
+		{
+			T er = default (T);
+			if (er is int) {
+				int q = 0;
+				foreach (var z in obj) {
+					q += (int)((object)z.obj);
+				}
+				er = (T)((object)q);
+			}
+			Console.WriteLine (er.ToString ());
+		}
 	}
 }

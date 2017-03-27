@@ -16,4 +16,13 @@
 		</arguments>
 		<returns type="void">Nothing</returns>
 	</func>
+	<func id="Rw">
+		<name>q</name>
+		<shortDescription>E1</shortDescription>
+		<helpText>none</helpText>
+		<arguments>
+			<arg nr="0" type="T[]" params="true">Ttype</arg>
+		</arguments>
+		<returns type="void">Nothing</returns>
+	</func>
 </funcs>

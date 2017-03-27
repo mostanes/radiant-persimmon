@@ -50,8 +50,5 @@
     <Folder Include="Parser\" />
     <Folder Include="Invoker\" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="ConsoleFunctionsWrapper.cs" />
-  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

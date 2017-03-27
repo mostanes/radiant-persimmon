@@ -1,15 +1,42 @@
-﻿using System;
+﻿//
+// InvokerSet.cs
+// 
+// Author:
+//      Mălin Stănescu malin.stanescu@gmail.com
+//
+// Copyright (c) 2017 Stănescu Mălin
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+using System;
 using System.Collections.Generic;
 using System.Reflection;
+using PersimmonRadiant.Utils;
 
-namespace PersimmonRadiant
+namespace PersimmonRadiant.Invoker
 {
+	/// <summary>
+	/// Invoking mechanism
+	/// </summary>
 	public class InvokerSet : FunctionSet
 	{
 		ConsoleAccess access;
 
-		public InvokerSet ()
+		public InvokerSet (ConsoleAccess Access)
 		{
+			access = Access;
 		}
 
 		public VariableTBase Invoke (string name, VariableTBase[] args)
@@ -30,10 +57,11 @@ namespace PersimmonRadiant
 				VariableTBase vb = (VariableTBase)o;
 				return vb;
 			}
+			throw new Exceptions.ShellFunctionNotFound ();
 			return null;
 		}
 
-		private struct ArgResult
+		struct ArgResult
 		{
 			public bool IsCorrect;
 			public Exceptions.ShellException ex;
@@ -42,7 +70,7 @@ namespace PersimmonRadiant
 			public MethodInfo genCr;
 		}
 
-		private void FindCallStd (Invokable iv)
+		void FindCallStd (Invokable iv)
 		{
 			var Arguments = iv.MInfo.GetParameters ();
 			Parametrization p = new Parametrization ();
@@ -72,18 +100,22 @@ namespace PersimmonRadiant
 			iv.CallStd = p;
 		}
 
-
-		private ArgResult CheckPopulateArgs (VariableTBase[] args, Invokable inv)
+		/// <summary>
+		/// Checks for correct arguments and populates the argument array.
+		/// </summary>
+		/// <param name="args">Given arguments.</param>
+		/// <param name="inv">Invokable to test.</param>
+		ArgResult CheckPopulateArgs (VariableTBase[] args, Invokable inv)
 		{
 			if (inv.CallStd == null) FindCallStd (inv);
 			var Arguments = inv.MInfo.GetParameters ();
 			int usesCFunc;
 			/* Check whether it uses the ConsoleAccess structure and also check it has at least as many arguments as the function inputs */
 			if (inv.CallStd.cfunc) {
-				if (Arguments.Length < args.Length + 1) return new ArgResult () { IsCorrect = false, ex = new Exceptions.ShellArgumentMismatch (ConsoleErrorMessages.TooFewArguments) };
+				if (Arguments.Length > args.Length + 1) return new ArgResult () { IsCorrect = false, ex = new Exceptions.ShellArgumentMismatch (ConsoleErrorMessages.TooFewArguments) };
 				else usesCFunc = 1;
 			} else {
-				if (Arguments.Length < args.Length) return new ArgResult () { IsCorrect = false, ex = new Exceptions.ShellArgumentMismatch (ConsoleErrorMessages.TooFewArguments) };
+				if (Arguments.Length > args.Length) return new ArgResult () { IsCorrect = false, ex = new Exceptions.ShellArgumentMismatch (ConsoleErrorMessages.TooFewArguments) };
 				else usesCFunc = 0;
 			}
 
@@ -104,7 +136,11 @@ namespace PersimmonRadiant
 			lg.arguments = new object[Arguments.Length];
 
 			if (inv.CallStd.generic) {
-				lg.genCr = CreateGenericMethod (args, inv);
+				try {
+					lg.genCr = CreateGenericMethod (args, inv);
+				} catch (Exceptions.ShellArgumentMismatch e) {
+					return new ArgResult () { IsCorrect = false, ex = e };
+				}
 				Arguments = lg.genCr.GetParameters ();
 			}
 
@@ -122,10 +158,14 @@ namespace PersimmonRadiant
 			/* Check for the 2 possible params cases */
 			if (inv.CallStd.hp1) {
 				List<VariableTBase> vb = new List<VariableTBase> ();
-				for (; i + usesCFunc < Arguments.Length; i++) {
+				Type z = Arguments[Arguments.Length - 1 - usesCFunc].ParameterType.GetElementType();
+				Type tz = this.GetType ();
+				MethodInfo eim = tz.GetMethod ("MakeArrayT", BindingFlags.NonPublic | BindingFlags.Static);
+				MethodInfo im = eim.MakeGenericMethod (z);
+				for (; i < args.Length; i++) {
 					vb.Add (args[i]);
 				}
-				lg.arguments[Arguments.Length - 1 - usesCFunc] = vb.ToArray ();
+				lg.arguments[Arguments.Length - 1 - usesCFunc] = im.Invoke (null, new object[] { vb });
 			}
 			if (inv.CallStd.hp2) {
 				List<object> sobj = new List<object> ();
@@ -143,10 +183,13 @@ namespace PersimmonRadiant
 			}
 			lg.IsCorrect = true;
 			return lg;
-
-
 		}
 
+		/// <summary>
+		/// Gets the variable type and embedded object.
+		/// </summary>
+		/// <param name="vb">The input variable.</param>
+		/// <param name="tp">The expected argument type.</param>
 		Tuple<Type, object> GetVar (VariableTBase vb, Type tp)
 		{
 			Type tc = tp;
@@ -160,6 +203,10 @@ namespace PersimmonRadiant
 			return null;
 		}
 
+		/// <summary>
+		/// Creates a generic method using given arguments.
+		/// </summary>
+		/// <returns>The generic method.</returns>
 		static MethodInfo CreateGenericMethod (VariableTBase[] args, Invokable iv)
 		{
 			var pseinfo = iv.MInfo.GetParameters ();
@@ -172,12 +219,12 @@ namespace PersimmonRadiant
 			int i;
 			for (i = 0; i < mlength; i++) {
 				ParameterInfo pinf = pseinfo[i];
-				bool isGen = pinf.ParameterType.IsGenericParameter;
 				bool hasGen = pinf.ParameterType.ContainsGenericParameters;
 				if ((!isGen) & (!hasGen)) continue;
-				if (isGen) typerelist.Add (new Tuple<Type, Type> (args[i].GetType ().GetGenericArguments()[0], stype[pinf.ParameterType.GenericParameterPosition]));
 				if (hasGen) {
 					List<Tuple<Type, Type>> ntp = TypeInference.ReplacementTypes (args[i].GetType (), pinf.ParameterType);
+					if (ntp == null) 
+						throw new Exceptions.ShellArgumentMismatch (ConsoleErrorMessages.GenericFunctionArgumentsMismatch);
 					typerelist.AddRange (ntp);
 				}
 			}
@@ -188,7 +235,10 @@ namespace PersimmonRadiant
 						Type rt = args[i].GetType ().GetGenericArguments ()[0];
 						vt = TypeInference.GetCommonBaseClass (vt, rt);
 					}
-					typerelist.Add (new Tuple<Type, Type> (vt, pseinfo[mlength].ParameterType));
+					List<Tuple<Type, Type>> ntp = TypeInference.ReplacementTypes (typeof (Variable<>).MakeGenericType (vt), pseinfo[mlength].ParameterType.GetElementType ());
+					if (ntp == null)
+						throw new Exceptions.ShellArgumentMismatch (ConsoleErrorMessages.GenericFunctionArgumentsMismatch);
+					typerelist.AddRange (ntp);
 				}
 			}
 			Type[] relist = new Type[stype.Length];
@@ -200,7 +250,16 @@ namespace PersimmonRadiant
 			return minf;
 		}
 
-
+		/// <summary>
+		/// Makes an array of required type from several variables.
+		/// </summary>
+		static private T[] MakeArrayT<T> (List<VariableTBase> alist)
+		{
+			T[] w = new T[alist.Count];
+			int i;
+			for (i = 0; i < alist.Count; i++) w[i] = (T)((object)alist[i]);
+			return w;
+		}
 	}
 }
 
